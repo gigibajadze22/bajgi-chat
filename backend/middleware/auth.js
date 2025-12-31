@@ -21,7 +21,7 @@ const auth = (req, res, next) => {
             // თუ Login-ში გაქვს jwt.sign({ userId: user.id }, ...), მაშინ აქ უნდა ეწეროს decoded.userId
             req.user = decoded; 
             
-            console.log("ავტორიზებული იუზერის მონაცემები:", req.user);
+            
             next();
         });
     } catch (error) {

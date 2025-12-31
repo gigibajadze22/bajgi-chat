@@ -1,98 +1,129 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import useSignup from "../hooks/useSignup";
+import { useNavigate, Link } from "react-router-dom";
+import api from "../api/axios";
 
 const Signup = () => {
-  const [inputs, setInputs] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({ fullName: "", email: "", password: "" });
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(""); // წარმატების შეტყობინებისთვის
 
-  const { loading, signup } = useSignup();
-
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    await signup(inputs);
+    setError("");
+    setSuccess("");
+    
+    try {
+      await api.post("/auth/signup", formData);
+      setSuccess("Registration successful! Redirecting to login..."); // მწვანე შეტყობინება
+      
+      // 2 წამში გადავიდეს ლოგინზე, რომ იუზერმა მოასწროს ტექსტის წაკითხვა
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
+      
+    } catch (err) {
+      setError(err.response?.data?.message || "Something went wrong");
+    }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-w-96 mx-auto">
-      <div className="w-full p-6 rounded-lg shadow-md bg-gray-400 bg-clip-padding backdrop-filter backdrop-blur-lg bg-opacity-0">
-        <h1 className="text-3xl font-semibold text-center text-gray-300">
-          Sign Up <span className="text-blue-500"> BajgiChat</span>
-        </h1>
+    <div style={authStyles.container}>
+      <div style={authStyles.card}>
+        <h2 style={authStyles.title}>Create Account</h2>
+        
+        {/* შეცდომის შეტყობინება (წითელი) */}
+        {error && <div style={authStyles.errorBadge}>{error}</div>}
+        
+        {/* წარმატების შეტყობინება (მწვანე) */}
+        {success && <div style={authStyles.successBadge}>{success}</div>}
 
-        <form onSubmit={handleSubmit}>
-          <div>
-            <label className="label p-2">
-              <span className="text-base label-text text-gray-300">Full Name</span>
-            </label>
-            <input
-              type="text"
-              placeholder="John Doe"
-              className="w-full input input-bordered h-10 bg-gray-700 text-white px-3 rounded"
-              value={inputs.fullName}
-              onChange={(e) => setInputs({ ...inputs, fullName: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="label">
-              <span className="text-base label-text text-gray-300">Email</span>
-            </label>
-            <input
-              type="email"
-              placeholder="john@example.com"
-              className="w-full input input-bordered h-10 bg-gray-700 text-white px-3 rounded"
-              value={inputs.email}
-              onChange={(e) => setInputs({ ...inputs, email: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="label">
-              <span className="text-base label-text text-gray-300">Password</span>
-            </label>
-            <input
-              type="password"
-              placeholder="Enter Password"
-              className="w-full input input-bordered h-10 bg-gray-700 text-white px-3 rounded"
-              value={inputs.password}
-              onChange={(e) => setInputs({ ...inputs, password: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="label">
-              <span className="text-base label-text text-gray-300">Confirm Password</span>
-            </label>
-            <input
-              type="password"
-              placeholder="Confirm Password"
-              className="w-full input input-bordered h-10 bg-gray-700 text-white px-3 rounded"
-              value={inputs.confirmPassword}
-              onChange={(e) => setInputs({ ...inputs, confirmPassword: e.target.value })}
-            />
-          </div>
-
-          <Link to="/login" className="text-sm hover:underline hover:text-blue-600 mt-2 inline-block text-gray-300">
-            Already have an account?
-          </Link>
-
-          <div>
-            <button 
-              className="btn btn-block btn-sm mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-500"
-              disabled={loading}
-            >
-              {loading ? "Registering..." : "Sign Up"}
-            </button>
-          </div>
+        <form onSubmit={submit} style={authStyles.form}>
+          <input 
+            placeholder="Full Name" 
+            style={authStyles.input} 
+            onChange={(e) => setFormData({...formData, fullName: e.target.value})} 
+            required
+          />
+          <input 
+            type="email" 
+            placeholder="Email Address" 
+            style={authStyles.input} 
+            onChange={(e) => setFormData({...formData, email: e.target.value})} 
+            required
+          />
+          <input 
+            type="password" 
+            placeholder="Password" 
+            style={authStyles.input} 
+            onChange={(e) => setFormData({...formData, password: e.target.value})} 
+            required
+          />
+          <button type="submit" style={authStyles.button}>Sign Up</button>
         </form>
+        
+        <p style={authStyles.footerText}>
+          Already have an account? <Link to="/login" style={authStyles.linkBold}>Login</Link>
+        </p>
       </div>
     </div>
   );
+};
+
+const authStyles = {
+  container: { 
+    height: "100vh", 
+    display: "flex", 
+    justifyContent: "center", 
+    alignItems: "center", 
+    backgroundColor: "#f3f4f6", 
+    fontFamily: "'Inter', sans-serif" 
+  },
+  card: { 
+    width: "100%", 
+    maxWidth: "400px", 
+    padding: "40px", 
+    backgroundColor: "#fff", 
+    borderRadius: "24px", 
+    boxShadow: "0 10px 25px rgba(0,0,0,0.05)" 
+  },
+  title: { fontSize: "26px", fontWeight: "800", color: "#111", marginBottom: "20px", textAlign: "center" },
+  form: { display: "flex", flexDirection: "column", gap: "15px" },
+  input: { padding: "12px", borderRadius: "10px", border: "1px solid #ddd", outline: "none", fontSize: "15px" },
+  button: { 
+    padding: "14px", 
+    borderRadius: "10px", 
+    border: "none", 
+    backgroundColor: "#4f46e5", 
+    color: "#fff", 
+    fontWeight: "bold", 
+    cursor: "pointer", 
+    fontSize: "16px",
+    marginTop: "10px"
+  },
+  errorBadge: { 
+    padding: "12px", 
+    backgroundColor: "#fef2f2", 
+    color: "#b91c1c", 
+    borderRadius: "12px", 
+    textAlign: "center", 
+    marginBottom: "15px",
+    fontSize: "14px",
+    border: "1px solid #fee2e2"
+  },
+  successBadge: { 
+    padding: "12px", 
+    backgroundColor: "#f0fdf4", 
+    color: "#15803d", 
+    borderRadius: "12px", 
+    textAlign: "center", 
+    marginBottom: "15px",
+    fontSize: "14px",
+    border: "1px solid #dcfce7",
+    fontWeight: "500"
+  },
+  linkBold: { color: "#4f46e5", fontWeight: "bold", textDecoration: "none" },
+  footerText: { textAlign: "center", marginTop: "20px", color: "#666", fontSize: "14px" }
 };
 
 export default Signup;

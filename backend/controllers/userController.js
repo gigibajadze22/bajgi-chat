@@ -1,45 +1,39 @@
 import { PrismaClient } from "@prisma/client";
 import { AppError } from "../utils/errorhandler.js";
-import fs from "fs";
-import path from "path";
 
 const prisma = new PrismaClient();
 
 export const updateUser = async (req, res, next) => {
   try {
     if (!req.user || !req.user.id) {
-      return next(new AppError("ავტორიზაცია საჭიროა", 401));
+      return res.status(401).json({ error: "ავტორიზაცია საჭიროა" });
     }
     const userId = req.user.id;
-    const { name, email } = req.body;
+    const { fullName } = req.body; // ვიყენებთ fullName-ს
+
     const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
+    if (fullName) updateData.fullName = fullName;
+
     if (req.file) {
-      // Delete old profile picture if exists
-      const existingUser = await prisma.user.findUnique({ where: { id: userId } });
-      if (existingUser && existingUser.profilePic) {
-        fs.unlink(path.resolve(existingUser.profilePic), (err) => {
-          if (err) console.error("Failed to delete old profile picture:", err);
-        });
-      }
-      updateData.profilePic = req.file.path; // Save the file path
+      // მნიშვნელოვანია: ვიყენებთ filename-ს და არა path-ს
+      updateData.profilePic = req.file.filename; 
     }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: updateData,
     });
+
     updatedUser.password = undefined;
-    res.status(200).json({
-      status: "success",
-      data: { user: updatedUser },
-    });
-  }
-  catch (error) {
-    next(new AppError("მომხმარებლის განახლება ვერ მოხერხდა", 500));
+
+    // ვაბრუნებთ პირდაპირ ობიექტს, რადგან Profile.jsx ასე ელოდება
+    res.status(200).json(updatedUser); 
+
+  } catch (error) {
+    console.error("Update Error:", error);
+    res.status(500).json({ error: "მონაცემების განახლება ვერ მოხერხდა" });
   }
 };
-
 export const deleteUser = async (req, res, next) => {
   try {
     if (!req.user || !req.user.id) {
@@ -55,60 +49,52 @@ export const deleteUser = async (req, res, next) => {
     next(new AppError("მომხმარებლის წაშლა ვერ მოხერხდა", 500));
   }
 };
-
 export const getMe = async (req, res, next) => {
   try {
-    if (!req.user || !req.user.id) {
-      return next(new AppError("ავტორიზაცია საჭიროა", 401));
-    }
-
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
     });
 
-    if (!user) {
-      return next(new AppError("მომხმარებელი ვერ მოიძებნა", 404));
-    }
+    if (!user) return next(new AppError("მომხმარებელი ვერ მოიძებნა", 404));
 
     user.password = undefined;
 
+    // სურათის URL-ის დაგენერირება
+    if (user.profilePic && !user.profilePic.startsWith("http")) {
+      user.profilePic = `http://localhost:3000/uploads/${user.profilePic}`;
+    }
+
     res.status(200).json({
       status: "success",
-      data: { user },
+      data: { user }, // აქ აბრუნებს ობიექტს { data: { user } }
     });
   } catch (error) {
-    next(new AppError("მონაცემების მიღება ვერ მოხერხდა", 500));
+    next(new AppError("შეცდომა", 500));
   }
 };
-export const getUsersForSidebar = async (req, res, next) => {
+export const getUsersForSidebar = async (req, res) => {
     try {
-        // შემოწმება: თუ req.user საერთოდ არ არსებობს
-        if (!req.user || !req.user.id) {
-            return next(new AppError("User not authenticated correctly", 401));
-        }
-
         const loggedInUserId = req.user.id;
 
-        const allUsersExceptMe = await prisma.user.findMany({
-            where: {
-                id: {
-                    not: loggedInUserId,
-                },
-            },
+        const allUsers = await prisma.user.findMany({
+            where: { id: { not: loggedInUserId } },
             select: {
                 id: true,
                 fullName: true,
                 profilePic: true,
-                email: true,
             },
         });
 
-        res.status(200).json({
-            status: "success",
-            data: { users: allUsersExceptMe },
-        });
+        // თითოეული იუზერისთვის სურათის URL-ის ფორმირება
+        const usersWithImages = allUsers.map(user => ({
+            ...user,
+            profilePic: user.profilePic && !user.profilePic.startsWith("http")
+                ? `http://localhost:3000/uploads/${user.profilePic}`
+                : user.profilePic
+        }));
+
+        res.status(200).json(usersWithImages);
     } catch (error) {
-        console.error("Error in getUsersForSidebar:", error);
-        next(new AppError("იუზერების წამოღება ვერ მოხერხდა ბაზიდან", 500));
+        res.status(500).json({ error: "Internal server error" });
     }
 };

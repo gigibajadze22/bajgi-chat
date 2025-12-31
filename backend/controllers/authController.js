@@ -157,16 +157,35 @@ export const forgotPassword = async (req, res, next) => {
 
 export const resetPassword = async (req, res, next) => {
   const { email, otpCode, newPassword } = req.body;
+  
+  console.log("Reset attempt for:", email); // Debug
+  console.log("Received OTP:", otpCode);     // Debug
+
   try {
     const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!user || user.otpCode !== otpCode || new Date() > user.otpexpiry) {
-      return next(new AppError("კოდი არასწორია ან ვადაგასულია", 400));
+    if (!user) {
+      console.log("User not found");
+      return next(new AppError("User not found", 404));
+    }
+
+    // ვბეჭდავთ დროს რომ შევადაროთ
+    console.log("DB OTP:", user.otpCode);
+    console.log("DB Expiry:", user.otpexpiry);
+    console.log("Current Time:", new Date());
+
+    if (user.otpCode !== otpCode) {
+      return next(new AppError("Invalid code", 400));
+    }
+
+    if (new Date() > user.otpexpiry) {
+      return next(new AppError("Code has expired", 400));
     }
 
     const hashPassword = await bcrypt.hash(newPassword, 12);
+
     await prisma.user.update({
-      where: { email },     
+      where: { email },
       data: {
         password: hashPassword,
         otpCode: null,
@@ -174,9 +193,10 @@ export const resetPassword = async (req, res, next) => {
       },
     });
 
-    res.status(200).json({ message: "პაროლი წარმატებით შეიცვალა" });
+    res.status(200).json({ status: "success", message: "Password updated!" });
   } catch (error) {
-    next(new AppError("პაროლის შეცვლა ვერ მოხერხდა", 500));
+    console.error("PRISMA ERROR:", error); // ეს დაგიწერს ტერმინალში ზუსტ შეცდომას
+    next(new AppError("Database update failed", 500));
   }
 };
 export const logout = (req, res) => {

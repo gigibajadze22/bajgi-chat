@@ -1,29 +1,29 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import Home from "./pages/Home";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import { useAuthContext } from "./context/AuthContext";
-import { Toaster } from "react-hot-toast";
+import Chat from "./pages/Chat";
+import Profile from "./pages/Profile";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
-  const { authUser } = useAuthContext();
+  const { user, loading } = useAuth();
+
+  if (loading) return <div>იტვირთება...</div>;
 
   return (
-    <div className="p-4 h-screen flex items-center justify-center">
-      <Routes>
-        {/* თუ იუზერი დალოგინებულია, მიდის მთავარზე, თუ არა - ლოგინზე */}
-        <Route path="/" element={authUser ? <Home /> : <Navigate to="/login" />} />
-        
-        {/* თუ დალოგინებულია და ცდილობს ლოგინზე შესვლას, ვაბრუნებთ მთავარზე */}
-        <Route path="/login" element={authUser ? <Navigate to="/" /> : <Login />} />
-        
-        {/* იგივე რეგისტრაციაზეც */}
-        <Route path="/signup" element={authUser ? <Navigate to="/" /> : <Signup />} />
-      </Routes>
+    <Routes>
+      {/* თუ იუზერი არ არის, გადავიდეს ლოგინზე, თუ არის - ჩეთზე */}
+      <Route path="/" element={user ? <Chat /> : <Navigate to="/login" />} />
+      <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
       
-      {/* ეს კომპონენტი გამოაჩენს პატარა შეტყობინებებს (მაგ: "წარმატებით შეხვედით") */}
-      <Toaster />
-    </div>
+      {/* თუ იუზერი უკვე შესულია, ლოგინის გვერდზე აღარ შეუშვას */}
+      <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+      <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/" />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+<Route path="/reset-password" element={<ResetPassword />} />
+    </Routes>
   );
 }
 
